@@ -1,0 +1,537 @@
+function getRandomInt(min: number, max: number): number {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
+export class UI {
+    private static CurrentUI : UI;
+    public static GetUI() : UI {
+        if (UI.CurrentUI == null) 
+            UI.CurrentUI = new UI()
+        return UI.CurrentUI;
+    }   
+
+
+    private snakeElement : HTMLElement // document.getElementById('snake')
+    private grid : HTMLElement //document.getElementById('grid');
+    private cellSize : number = 21
+
+    constructor() {
+        let snakeEl = document.getElementById('snake');
+        let gridEl = document.getElementById('grid');
+        this.snakeElement = snakeEl == null ? new HTMLElement() : snakeEl;
+        this.grid = gridEl == null ? new HTMLElement() : gridEl;
+        this.cellSize = this.cellSize
+    }
+
+    public render(SnakeHead : [number, number], SnakeBody : [number, number][], AppleArray : Apple[]) {
+        const existingSegments = document.querySelectorAll('.snake-segment');
+        existingSegments.forEach(segment => segment.remove());
+
+        const body = SnakeBody
+        for (let i = 0; i < body.length; i++) {
+            const bodyElement = document.createElement('div');
+            bodyElement.className = 'snake-segment';
+            bodyElement.id = 'snake-body-${i}';
+            bodyElement.style.left = body[i][0]*this.cellSize + "px"
+            bodyElement.style.top = body[i][1]*this.cellSize + "px"
+            this.grid.appendChild(bodyElement)
+        }
+
+        this.snakeElement.style.left = SnakeHead[0]*this.cellSize + "px"
+        this.snakeElement.style.top  = SnakeHead[1]*this.cellSize + "px"
+
+        const existingApples = document.querySelectorAll('.apple')
+        const existingYellowApples = document.querySelectorAll('.yellow-apple')
+        existingApples.forEach(apple => apple.remove()); 
+        existingYellowApples.forEach(apple => apple.remove()); 
+
+        var apples = AppleArray
+        for (let apple of apples) {
+            const appleElement = document.createElement('div');
+         
+            appleElement.id = 'apple-${i}';
+            let applePos : [number, number] = apple.getPos()
+            // console.log(applePos)
+            
+            if (apple.getYellow()) {
+                appleElement.className = 'yellow-apple';
+                appleElement.style.left = applePos[0]*this.cellSize -3 + "px"
+                appleElement.style.top = applePos[1]*this.cellSize -2 + "px"
+            } else {
+                appleElement.className = 'apple';
+                appleElement.style.left = applePos[0]*this.cellSize -2 + "px"
+                appleElement.style.top = applePos[1]*this.cellSize -2 + "px"
+            }
+            
+            // appleElement.style.top = applePos[1]*this.cellSize + "px"
+            // appleElement.style.left = applePos[0]*this.cellSize + "px"
+            
+            this.grid.appendChild(appleElement)
+        }
+        //console.log(SnakeHead)
+        apples = []
+    }
+
+    public async close() {
+        var i = 0;
+        this.snakeElement.style.backgroundColor = 'darkred'
+        const existingSegments : NodeListOf<HTMLElement> = document.querySelectorAll('.snake-segment');
+        var sleepTimer = 100
+        for (const segment of existingSegments) {
+            await new Promise(r => setTimeout(r, sleepTimer));
+            sleepTimer *= 0.97
+            segment.style.backgroundColor = 'darkred';
+        }
+        await new Promise(r => setTimeout(r, 300));
+        
+        this.snakeElement.remove()
+        for (const segment of existingSegments) {
+            await new Promise(r => setTimeout(r, sleepTimer));
+            sleepTimer *= 0.97
+            segment.remove()
+        }
+    }
+
+    public getCellSize() : number {
+        return this.cellSize;
+    }
+}
+
+export class Game {
+    private static CurrentGame : Game;
+    public static GetGame() : Game {
+        if (Game.CurrentGame == null) 
+            Game.CurrentGame = new Game()
+        return Game.CurrentGame;
+    }   
+
+
+    private ui : UI = new UI();
+    private apples : Apple[] = []
+    private snake : Snake = new Snake()
+
+    private lastUpdatedTime = 0
+    private frameRate = 10
+
+    private boardSize : [number, number] = [41, 20]
+    private gameOver : boolean = false
+    public ulti : number = 0
+
+    
+    private constructor() {
+        this.boardSize = [40, 20];
+        
+        this.snake.init(this.boardSize);
+        for (let i = 0; i < 100; i++) {
+            let newApple = new Apple(this.boardSize);
+            newApple.placeApple(this.snake.getBody(), this.apples);
+            this.apples.push(newApple);
+        }
+    }
+    
+    private ended : boolean = false
+    public tick(timestamp : number) : void {
+        
+        if(this.ulti > 0){
+            this.frameRate = 5
+            this.ulti--
+        }else{
+            this.frameRate = 10
+        }
+        
+        if (timestamp - this.lastUpdatedTime > 1000/this.frameRate && !this.ended) {
+            this.lastUpdatedTime = timestamp
+            
+            if (this.gameOver) {
+                this.ui.close()
+                this.ended = true
+                return
+            }
+
+            this.snake.move(this.apples)
+
+            this.ui.render(this.snake.getHead(),
+                           this.snake.getBody(),
+                           this.apples
+            );
+        }
+    }
+
+    public inputController(input : any) : void {
+        input = input || window.event
+        //console.log(input.keyCode)
+        switch (input.keyCode) {
+            case 38: { // UP
+                if (this.snake.direction != Direction.Down)
+                    this.snake.nextDirection = Direction.Up
+    
+            } break;
+            case 40: { // DOWN
+                if (this.snake.direction != Direction.Up)
+                    this.snake.nextDirection = Direction.Down
+            } break;
+            case 37: { // LEFT
+                if (this.snake.direction != Direction.Right)
+                    this.snake.nextDirection = Direction.Left
+            } break;
+            case 39: { // RIGHT
+                if (this.snake.direction != Direction.Left)
+                    this.snake.nextDirection = Direction.Right
+            } break;
+        }
+    }
+
+
+
+    public getCellSize(): number{
+        return this.ui.getCellSize()
+    }
+    public getBoardSize() : [number, number] {
+        return this.boardSize
+    }
+    public getGameOver(): boolean{
+        return this.gameOver
+    }
+    public setGameOver(Over: boolean): void {
+        this.gameOver = Over;
+    }
+    public setSuper(value : number) : void {
+        this.ulti = value;
+    }
+    public GetScore() : number {
+        return this.snake.getBody().length+1
+    }
+    
+}
+
+export class Snake{
+    private head: [number, number] = [1, 1]
+    private body : [number, number][] = []
+    private length = 0
+    public direction: Direction = Direction.Right;
+    public nextDirection: Direction = Direction.Right;
+    private screenPosition: [number, number] = [0, 0];
+
+    constructor() {}
+
+    public init(boardSize : [number, number]) : void {
+        this.head = [getRandomInt(5, boardSize[0]-6), getRandomInt(5, boardSize[1]-6)]
+        const randomDirection : number = Math.random()
+        if (randomDirection < 0.25) {
+            this.direction = Direction.Left
+        } else if (randomDirection < 0.5) {
+            this.direction = Direction.Up            
+        }
+        else if (randomDirection < 0.75) {
+            this.direction = Direction.Right            
+        }
+        else if (randomDirection < 1.000001) {
+            this.direction = Direction.Down          
+        }
+    }
+
+
+    public move(apples : Apple[]): void {
+        if (Game.GetGame().getGameOver() == true) {
+            //console.log("[!] GameOver")
+            return
+        }
+    
+        switch (this.direction) {
+            case Direction.Right:
+                if (this.head[0] > Game.GetGame().getBoardSize()[0]) {
+                    Game.GetGame().setGameOver(true);
+                    return;
+                } break;
+            case Direction.Left:
+                if (this.head[0] < 0) {
+                    Game.GetGame().setGameOver(true);
+                    return;
+                } break;
+            case Direction.Up:
+                if (this.head[1] < 0) {
+                    Game.GetGame().setGameOver(true);
+                    return;
+                } break;
+            case Direction.Down:
+                if (this.head[1] > Game.GetGame().getBoardSize()[1]) {
+                    Game.GetGame().setGameOver(true);
+                    return;
+                } break;
+        }
+    
+        for (let i = length-1; i > -1; i--) {
+            if (i == 0) {
+                this.body[0] = [this.head[0], this.head[1]]
+            } else {
+                this.body[i] = [this.body[i-1][0], this.body[i-1][1]]
+            }
+        }
+    
+        this.direction = this.nextDirection;
+
+        switch (this.direction) {
+            case Direction.Right:
+                this.head[0] += 1;
+                break;
+            case Direction.Left:
+                this.head[0] -= 1;
+                break;
+            case Direction.Up:
+                this.head[1] -= 1;
+                break;
+            case Direction.Down:
+                this.head[1] += 1;
+                break;
+        }
+    
+        this.body.forEach(segment => {
+            const bodyPosition = [segment[0], segment[1]]
+            // console.log(head +  " : " + bodyPosition)
+            if(this.head[0] == bodyPosition[0] && this.head[1] == bodyPosition[1]){
+                Game.GetGame().setGameOver(true);
+            }
+        });
+    
+        this.screenPosition[0] = this.head[0] * Game.GetGame().getCellSize();
+        this.screenPosition[1] = this.head[1] * Game.GetGame().getCellSize();
+        //let apples = Game.GetGame().getApples()
+        for (let i = 0; i < apples.length; i++) {
+            if (this.head[0] === apples[i].getPos()[0] && this.head[1] === apples[i].getPos()[1]) {
+
+                if(apples[i].getYellow()){
+                    console.log("Is Yellow")
+                    Game.GetGame().setSuper(100);
+                }
+
+                if (apples.length + this.getBody().length + 1 > 41 * 21) {
+                    apples.splice(i, 1);
+                    i--;
+                    console.log(`entfernt, äpfl: ${apples.length}´, körper: ${this.getBody().length}`)
+                } else {
+                    apples[i].placeApple(this.body, apples);
+                }
+                
+                this.body.push([this.head[0], this.head[1]])
+                length += 1
+            }
+        }
+    }
+
+
+
+    public getHead() : [number, number] {
+        return this.head
+    }
+    public getBody() : [number, number][] {
+        return this.body
+    }
+}
+
+
+
+
+export class Apple {
+    private pos: [number, number] = [0, 0];
+    private isYellow: boolean = false;
+
+    private boardSize: [number, number] = [0, 0];
+
+    constructor(boardSize: [number, number]) {
+        this.boardSize = boardSize;
+    }
+
+    public getPos(): [number, number] {
+        return this.pos;
+    }
+
+    public getYellow(): boolean {
+        return this.isYellow;
+    }
+
+    public placeApple(bodyArray: [number, number][], appleArray: Apple[]): [number, number] {
+        if (Math.random() < 0.05)
+            this.isYellow = true;
+        else
+            this.isYellow = false;
+
+        let randomPos: [number, number] = [getRandomInt(0, this.boardSize[0]), getRandomInt(0, this.boardSize[1])];
+
+        const isOverlap = (pos: [number, number], arr: [number, number][]) => {
+            return arr.some(item => item[0] === pos[0] && item[1] === pos[1]);
+        };
+
+        const isAppleOverlap = (pos: [number, number], apples: Apple[]) => {
+            return apples.some(apple => {
+                const applePos = apple.getPos();
+                return applePos[0] === pos[0] && applePos[1] === pos[1];
+            });
+        };
+
+        let validPosition = false;
+        while (!validPosition) {
+            randomPos = [getRandomInt(0, this.boardSize[0]), getRandomInt(0, this.boardSize[1])];
+            if (!isOverlap(randomPos, bodyArray) && !isAppleOverlap(randomPos, appleArray)) {
+                validPosition = true;
+                console.log(`Valid position found: ${randomPos}`);
+            } else {
+                console.log(`Invalid position: ${randomPos}, retrying...`);
+            }
+        }
+
+        this.pos = randomPos;
+        return this.pos;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>60x40 Grid</title>
+    <h1>Snake in Typescript.</h1>
+    <style>
+            body {
+                display: block;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f0f0f0;
+                overflow: hidden;
+            }
+            
+            .grid {
+                display: grid;
+                position: relative;
+                grid-template-columns: repeat(41, 20px);
+                grid-template-rows: repeat(20, 20px);
+                gap: 1px;
+            }
+            
+            .cell {
+                width: 20px;
+                height: 20px;
+                background-color: white;
+                border: 1px solid black;
+                box-sizing: border-box;
+            }
+
+            .snake {
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                background-color: green;
+                border: 1px;
+                box-sizing: border-box;
+            }
+            .snake-segment {
+                width: 20px;
+                height: 20px;
+                position: absolute;
+                position: absolute;  
+                background-image: url('./Red.png');
+                background-size: cover;
+                background-position: center;
+                box-sizing: border-box;
+            }
+           
+            .apple {
+                width: 25px;
+                height: 25px;
+                position: absolute;
+                
+                background-image: url('./Red.png');
+                background-size: cover;
+                background-position: center;
+                box-sizing: border-box;
+            }
+
+            .yellow-apple {
+                width: 32px;
+                height: 32px;
+                position: absolute;
+                
+                background-image: url('./Yellow.png');
+                background-size: cover;
+                background-position: center;
+                box-sizing: border-box;
+            }
+
+            .counter {
+                position: absolute;
+                top: -24px;
+                left: 840px;
+            }
+
+        </style>
+</head>
+
+<body>
+    <div class="grid" id="grid">
+        <script>
+            
+            for (let i = 0; i < 40*21+21; i++) {
+                    document.write('<div class="cell"></div>');
+                }    
+        </script>
+
+        <div class="counter" id="counter">Länge einfügen.</div>
+
+        <div class="snake" id="snake"></div>
+
+        <div class="apple" id="apple"></div>
+        <div class="superapple" id="superapple"></div>
+        
+        <script type="module">
+            
+
+            import { Game, Snake, Apple } from './main.js';
+
+            
+            let game = Game.GetGame();
+
+
+            function game_loop(timestamp) {
+                game.tick(timestamp)
+
+                const counter = document.getElementById('counter') 
+                counter.textContent = game.GetScore();
+
+                requestAnimationFrame(game_loop);
+            }
+            
+
+            document.addEventListener('keydown', function(event) {
+                game.inputController()
+            });
+
+            requestAnimationFrame(game_loop)
+        </script>
+
+        </div>
+    </body>    
+</html>
+
+

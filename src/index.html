@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>60x40 Grid</title>
+    <h1>Snake in Typescript.</h1>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="grid" id="grid">
+        <script>
+            for (let i = 0; i < 41*22; i++) {
+                if (i % 2 === 0)
+                    document.write('<div class="cell"></div>');
+                else
+                    document.write('<div class="cell2"></div>');
+            }
+        </script>
+        
+        <button type="button" id="singleplayerbttn" class="singleplayer-button">Singleplayer</button>
+        <button type="button" id="multiplayerbttn" class="multiplayer-button">Multiplayer</button>
+
+        
+        <div class="score" id="score">0.</div>
+        <div class="highscore" id="highscore">0.</div>
+
+        <div class="snake" id="snake"></div>
+        <div class="snake2" id="snake2"></div>
+
+        <div class="apple" id="apple"></div>
+        <div class="superapple" id="superapple"></div>
+
+        <script type="module">
+            import { Game, Snake, Apple } from './main.js';
+
+            let game = Game.GetGame();
+
+            const singleplayerbttn = document.getElementById('singleplayerbttn')
+            const multiplayerbttn = document.getElementById('multiplayerbttn')
+
+            singleplayerbttn.onclick = function() { 
+                console.log("Singleplayer")
+                singleplayerbttn.style.display = 'none';
+                multiplayerbttn.style.display = 'none';
+                game.singleplayer = true;
+                game.started = true;
+
+            };
+
+            multiplayerbttn.onclick = function() { 
+                console.log("Multiplayer")
+                singleplayerbttn.style.display = 'none';
+                multiplayerbttn.style.display = 'none';
+                game.singleplayer = false;
+                game.started = true;
+            };
+
+            function game_loop(timestamp) {
+                game.tick(timestamp);
+                requestAnimationFrame(game_loop);
+            }
+
+            document.addEventListener('keydown', function(event) {
+                game.inputController(event);
+            });
+
+            requestAnimationFrame(game_loop);
+        </script>
+    </div>
+</body>
+</html>
